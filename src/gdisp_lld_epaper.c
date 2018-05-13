@@ -156,7 +156,7 @@ static void setMemoryArea(GDisplay *g) { /* was set view port*/
      *
      *    oh the minus 1 is probably from the original prototype i had where I was passing values so i should probably -1
      * */
-  uint8_t x_start = g->p.x / EPD_PPB;
+  uint8_t x_start = g->p.x / EPD_PPB; //i think the x_start is always 0,0
   uint8_t y_start = g->p.y;
   uint8_t x_end = g->p.cx;
   uint8_t y_end = g->p.cy;
@@ -174,7 +174,7 @@ static void setMemoryArea(GDisplay *g) { /* was set view port*/
            sendData(g, (y_start >> 8) & 0xFF);
            sendData(g, (y_end - 1) & 0xFF);
            sendData(g, ((y_end -1) >> 8) & 0xFF);
-           while(P7IN & BIT2); //wait for busy line to go low
+           while(P7IN & BIT2); //wait for busy line to go low      // waitNotBusy();
            break;
         case GDISP_ROTATE_180:
             sendCommand(g, CMD_X_ADDR_START );
@@ -201,89 +201,26 @@ static void setMemoryArea(GDisplay *g) { /* was set view port*/
     }
 }
 
-//#if GDISP_HARDWARE_FLUSH
-	LLDSPEC void gdisp_lld_flush(GDisplay *g) {
-
+#if GDISP_HARDWARE_FLUSH
+	LLDSPEC void gdisp_lld_flush(GDisplay *g) { /* sendToDisplay()  combined with the write to ram. */
 	    acquire_bus(g);
-	    /* start writing frame buffer to ram */
-        setMemoryArea(0, 0, LCD_HORIZONTAL_MAX- 1, LCD_VERTICAL_MAX - 1);
-        setMemoryPointer(0, 0);
-        sendCommand(CMD_WRITE_RAM);
-        /* send the image data */
-        uint16_t i = 0;
-        for (i = 0; i < (200 / 8 ) * 200; i++) {
-            sendData(image_buffer[i]);
-        }
+	    /* Start writing frame buffer to ram. */
+	      sendCommand(g, CMD_WRITE_RAM);
+	      for(int i=0; i<GDISP_SCREEN_HEIGHT; i++)
+	        for(int j=0; j<=((GDISP_SCREEN_WIDTH-1)/8); j++)
+	          sendData(g, ((uint8_t *)g->priv)[(GDISP_SCREEN_HEIGHT*j) + i]);
+	      /* Update the screen. */
+	     sendCommand(g, CMD_DISPLAY_UPDATE_CTRL2);
+	     sendData(g, 0xC4);
+	     sendCommand(g, CMD_MASTER_ACTV);
+	     sendCommand(g, CMD_NOP);
+
+	     while(P7IN & BIT2); //wait for busy line to go low      // waitNotBusy();
+
 	  release_bus(g);
 }
 #endif
 
-#if GDISP_HARDWARE_FILLS
-	LLDSPEC void gdisp_lld_fill_area(GDisplay *g) {
-		coord_t		sy, ey;
-		coord_t		sx, ex;
-		coord_t		col;
-		unsigned	spage, zpages;
-		uint8_t *	base;
-		uint8_t		mask;
-
-		switch(g->g.Orientation) {
-		default:
-		case GDISP_ROTATE_0:
-			sx = g->p.x;
-			ex = g->p.x + g->p.cx - 1;
-			sy = g->p.y;
-			ey = sy + g->p.cy - 1;
-			break;
-		case GDISP_ROTATE_90:
-			sx = g->p.y;
-			ex = g->p.y + g->p.cy - 1;
-			sy = GDISP_SCREEN_HEIGHT - g->p.x - g->p.cx;
-			ey = GDISP_SCREEN_HEIGHT-1 - g->p.x;
-			break;
-		case GDISP_ROTATE_180:
-			sx = GDISP_SCREEN_WIDTH - g->p.x - g->p.cx;
-			ex = GDISP_SCREEN_WIDTH-1 - g->p.x;
-			sy = GDISP_SCREEN_HEIGHT - g->p.y - g->p.cy;
-			ey = GDISP_SCREEN_HEIGHT-1 - g->p.y;
-			break;
-		case GDISP_ROTATE_270:
-			sx = GDISP_SCREEN_WIDTH - g->p.y - g->p.cy;
-			ex = GDISP_SCREEN_WIDTH-1 - g->p.y;
-			sy = g->p.x;
-			ey = g->p.x + g->p.cx - 1;
-			break;
-		}
-
-		spage = sy / 8;
-		base = RAM(g) + SSD1306_PAGE_OFFSET + SSD1306_PAGE_WIDTH * spage;
-		mask = 0xff << (sy&7);
-		zpages = (ey / 8) - spage;
-
-		if (gdispColor2Native(g->p.color) == gdispColor2Native(Black)) {
-			while (zpages--) {
-				for (col = sx; col <= ex; col++)
-					base[col] &= ~mask;
-				mask = 0xff;
-				base += SSD1306_PAGE_WIDTH;
-			}
-			mask &= (0xff >> (7 - (ey&7)));
-			for (col = sx; col <= ex; col++)
-				base[col] &= ~mask;
-		} else {
-			while (zpages--) {
-				for (col = sx; col <= ex; col++)
-					base[col] |= mask;
-				mask = 0xff;
-				base += SSD1306_PAGE_WIDTH;
-			}
-			mask &= (0xff >> (7 - (ey&7)));
-			for (col = sx; col <= ex; col++)
-				base[col] |= mask;
-		}
-		g->flags |= GDISP_FLG_NEEDFLUSH;
-	}
-#endif
 
 #if GDISP_HARDWARE_DRAWPIXEL
 	LLDSPEC void gdisp_lld_draw_pixel(GDisplay *g) {
@@ -308,105 +245,74 @@ static void setMemoryArea(GDisplay *g) { /* was set view port*/
 			y = g->p.x;
 			break;
 		}
-		if (gdispColor2Native(g->p.color) != gdispColor2Native(Black))
-			RAM(g)[xyaddr(x, y)] |= xybit(y);
-		else
-			RAM(g)[xyaddr(x, y)] &= ~xybit(y);
-		g->flags |= GDISP_FLG_NEEDFLUSH;
-	}
-#endif
-
-#if GDISP_HARDWARE_PIXELREAD
-	LLDSPEC color_t gdisp_lld_get_pixel_color(GDisplay *g) {
-		coord_t		x, y;
-
-		switch(g->g.Orientation) {
-		default:
-		case GDISP_ROTATE_0:
-			x = g->p.x;
-			y = g->p.y;
-			break;
-		case GDISP_ROTATE_90:
-			x = g->p.y;
-			y = GDISP_SCREEN_HEIGHT-1 - g->p.x;
-			break;
-		case GDISP_ROTATE_180:
-			x = GDISP_SCREEN_WIDTH-1 - g->p.x;
-			y = GDISP_SCREEN_HEIGHT-1 - g->p.y;
-			break;
-		case GDISP_ROTATE_270:
-			x = GDISP_SCREEN_WIDTH-1 - g->p.y;
-			y = g->p.x;
-			break;
-		}
-		return (RAM(g)[xyaddr(x, y)] & xybit(y)) ? White : Black;
+		 /* There is only black and no black (white). */
+		  if (gdispColor2Native(g->p.color) != Black) // Indexing in the array is done as described in the init routine
+		    ((uint8_t *)g->priv)[(GDISP_SCREEN_HEIGHT*(x/EPD_PPB)) + y] |= (1 << (EPD_PPB-1 - (x % EPD_PPB)));
+		  else
+		    ((uint8_t *)g->priv)[(GDISP_SCREEN_HEIGHT*(x/EPD_PPB)) + y] &= ~(1 << (EPD_PPB-1 - (x % EPD_PPB)));
 	}
 #endif
 
 #if GDISP_NEED_CONTROL && GDISP_HARDWARE_CONTROL
-	LLDSPEC void gdisp_lld_control(GDisplay *g) {
-		switch(g->p.x) {
-		case GDISP_CONTROL_POWER:
-			if (g->g.Powermode == (powermode_t)g->p.ptr)
-				return;
-			switch((powermode_t)g->p.ptr) {
-			case powerOff:
-			case powerSleep:
-			case powerDeepSleep:
-				acquire_bus(g);
-				write_cmd(g, SSD1306_DISPLAYOFF);
-				release_bus(g);
-				break;
-			case powerOn:
-				acquire_bus(g);
-				write_cmd(g, SSD1306_DISPLAYON);
-				release_bus(g);
-				break;
-			default:
-				return;
-			}
-			g->g.Powermode = (powermode_t)g->p.ptr;
-			return;
+LLDSPEC void gdisp_lld_control(GDisplay *g) {
+    switch(g->p.x) {
+    case GDISP_CONTROL_POWER:
+        if (g->g.Powermode == (powermode_t)g->p.ptr)
+            return;
+        switch((powermode_t)g->p.ptr) {
+        case powerOff:
+        case powerSleep:
+        case powerDeepSleep:
+            acquire_bus(g);
+            sendCommand(g, CMD_DISPLAY_UPDATE_CTRL2);
+            sendData(g, 0x03);
+            sendCommand(g, CMD_DEEP_SLEEP);
+            sendData(g, 0x01);
+            release_bus(g);
+            break;
+        case powerOn:
+            acquire_bus(g);
+            sendCommand(g, CMD_DISPLAY_UPDATE_CTRL2);
+            sendData(g, 0xc0);
+            sendCommand(g, CMD_DEEP_SLEEP);
+            sendData(g, 0x00);
+            release_bus(g);
+            break;
+        default:
+            return;
+        }
+        g->g.Powermode = (powermode_t)g->p.ptr;
+        return;
 
-		case GDISP_CONTROL_ORIENTATION:
-			if (g->g.Orientation == (orientation_t)g->p.ptr)
-				return;
-			switch((orientation_t)g->p.ptr) {
-			/* Rotation is handled by the drawing routines */
-			case GDISP_ROTATE_0:
-			case GDISP_ROTATE_180:
-				g->g.Height = GDISP_SCREEN_HEIGHT;
-				g->g.Width = GDISP_SCREEN_WIDTH;
-				break;
-			case GDISP_ROTATE_90:
-			case GDISP_ROTATE_270:
-				g->g.Height = GDISP_SCREEN_WIDTH;
-				g->g.Width = GDISP_SCREEN_HEIGHT;
-				break;
-			default:
-				return;
-			}
-			g->g.Orientation = (orientation_t)g->p.ptr;
-			return;
-
-		case GDISP_CONTROL_CONTRAST:
-            if ((unsigned)g->p.ptr > 100)
-            	g->p.ptr = (void *)100;
-			acquire_bus(g);
-			write_cmd2(g, SSD1306_SETCONTRAST, (((unsigned)g->p.ptr)<<8)/101);
-			release_bus(g);
-            g->g.Contrast = (unsigned)g->p.ptr;
-			return;
-
-		// Our own special controller code to inverse the display
-		// 0 = normal, 1 = inverse
-		case GDISP_CONTROL_INVERSE:
-			acquire_bus(g);
-			write_cmd(g, g->p.ptr ? SSD1306_INVERTDISPLAY : SSD1306_NORMALDISPLAY);
-			release_bus(g);
-			return;
-		}
-	}
+        case GDISP_CONTROL_ORIENTATION:
+            if (g->g.Orientation == (orientation_t)g->p.ptr)
+                return;
+            switch((orientation_t)g->p.ptr) {
+            case GDISP_ROTATE_0:
+                g->g.Height = GDISP_SCREEN_HEIGHT;
+                g->g.Width = GDISP_SCREEN_WIDTH;
+                break;
+            case GDISP_ROTATE_90:
+                g->g.Height = GDISP_SCREEN_WIDTH;
+                g->g.Width = GDISP_SCREEN_HEIGHT;
+                break;
+            case GDISP_ROTATE_180:
+                g->g.Height = GDISP_SCREEN_HEIGHT;
+                g->g.Width = GDISP_SCREEN_WIDTH;
+                break;
+            case GDISP_ROTATE_270:
+                g->g.Height = GDISP_SCREEN_WIDTH;
+                g->g.Width = GDISP_SCREEN_HEIGHT;
+                break;
+            default:
+                return;
+            }
+            g->g.Orientation = (orientation_t)g->p.ptr;
+            return;
+            default:
+                return;
+      }
+}
 #endif // GDISP_NEED_CONTROL
 
 #endif // GFX_USE_GDISP
