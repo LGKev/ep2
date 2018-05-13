@@ -46,7 +46,7 @@
 */Debug
 *.project
 startup_msp432p401r_ccs.c
-epaper_gfx/targetConfigs
+*/targetConfigs
 system_msp432p401r.c
 *.settings/org.eclipse.cdt.codan.core.prefs
 *.settings/org.eclipse.cdt.debug.core.prefs
