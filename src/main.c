@@ -371,7 +371,7 @@ void main(void)
 /*============================================================================================================*/
 /*============================================================================================================*/
 /*============================================================================================================*/
-//#define LAUNCHPAD_FW
+#define LAUNCHPAD_FW
 #ifdef LAUNCHPAD_FW
 /*
  *  Port 10 for the LaunchPad
@@ -457,14 +457,14 @@ void initEpaper(void){
           EUSCI_B3_SPI -> IE |= UCTXIE;
 
           NVIC_EnableIRQ(EUSCIB3_IRQn);
-          //reset epaper 10ms
+          //reset ePaper 10ms
           uint16_t delay = 0;
           P7OUT &=~BIT1;
           for(delay = 0; delay < 12000; delay++);
           P7OUT |= BIT1;
           for(delay = 0; delay < 12000; delay++); //double check with LA to see if equal or greater than 10mS
 
-          //ePaper Init Sequence
+          /* ePaper Init Sequence From DataSheet Lots of Magic Numbers */
               sendCommand(CMD_DRIVER_OUTPUT_CONTROL);
               sendData((LCD_VERTICAL_MAX - 1) & 0xFF);
               sendData(((LCD_HORIZONTAL_MAX - 1) >> 8) & 0xFF);
@@ -482,7 +482,7 @@ void initEpaper(void){
               sendCommand(CMD_DATA_ENTRY);
               sendData(0x03);                     // X increment; Y increment
 
-              //send LUT
+           /* Send LUT - more magic numbers provided by venor*/
               setLUT(lut_full_update);
 
 }
@@ -532,7 +532,7 @@ void EUSCIB3_IRQHandler(void)
 /*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*/
 /*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*/
 
-#define PCB_FIRMWARE
+//#define PCB_FIRMWARE
 #ifdef PCB_FIRMWARE
 /*
  *  Port 3 for the PCB

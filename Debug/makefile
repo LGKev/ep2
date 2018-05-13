@@ -13,7 +13,6 @@ ORDERED_OBJS += \
 "./startup_msp432p401r_ccs.obj" \
 "./system_msp432p401r.obj" \
 "./src/main.obj" \
-"./src/msp432p401r_raw32_ugfx.obj" \
 "./uGFX/src/gfx_mk.obj" \
 "../msp432p401r.cmd" \
 $(GEN_CMDS__FLAG) \
@@ -161,8 +160,8 @@ epaper_gfx.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "startup_msp432p401r_ccs.obj" "system_msp432p401r.obj" "src\main.obj" "src\msp432p401r_raw32_ugfx.obj" "uGFX\src\gfx_mk.obj" 
-	-$(RM) "startup_msp432p401r_ccs.d" "system_msp432p401r.d" "src\main.d" "src\msp432p401r_raw32_ugfx.d" "uGFX\src\gfx_mk.d" 
+	-$(RM) "startup_msp432p401r_ccs.obj" "system_msp432p401r.obj" "src\main.obj" "uGFX\src\gfx_mk.obj" 
+	-$(RM) "startup_msp432p401r_ccs.d" "system_msp432p401r.d" "src\main.d" "uGFX\src\gfx_mk.d" 
 	-@echo 'Finished clean'
 	-@echo ' '
 

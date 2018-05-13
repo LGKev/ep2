@@ -1,1 +1,1 @@
-"./startup_msp432p401r_ccs.obj" "./system_msp432p401r.obj" "./src/main.obj" "./src/msp432p401r_raw32_ugfx.obj" "./uGFX/src/gfx_mk.obj" "../msp432p401r.cmd" -llibc.a 
+"./startup_msp432p401r_ccs.obj" "./system_msp432p401r.obj" "./src/main.obj" "./uGFX/src/gfx_mk.obj" "../msp432p401r.cmd" -llibc.a 

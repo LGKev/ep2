@@ -3,157 +3,124 @@
  * the license was not distributed with this file, you can obtain one at:
  *
  *              http://ugfx.org/license.html
+ *
+ *     @Note: Future Kevin: this board file was created by them, but I modify it for my mcu and spi driver I have. UL3820
+ *      compare this to CPU20's forum post, where he has board_2s9epd_example.h
  */
 
 #ifndef _GDISP_LLD_BOARD_H
 #define _GDISP_LLD_BOARD_H
 
-// Avoid naming collisions with CubeHAL
-#undef Red
-#undef Green
-#undef Blue
+// Include msp
+#include "msp.h"
+#include "epaper.h" //eventually will rename. all the defines for LUT and commands
 
-// Include CubeHAL
-#include "stm32f4xx_hal.h"
-#include "stm324x9i_eval_sdram.h"
-
-#define ALLOW_2ND_LAYER		TRUE
-
-// Panel parameters
-// This panel is a AMPIRE640480 panel.
-
-static const ltdcConfig driverCfg = {
-	640, 480,								// Width, Height (pixels)
-	30, 3,									// Horizontal, Vertical sync (pixels)
-	114, 32,								// Horizontal, Vertical back porch (pixels)
-	16, 10,									// Horizontal, Vertical front porch (pixels)
-	0,										// Sync flags
-	0x000000,								// Clear color (RGB888)
-
-	{										// Background layer config
-		(LLDCOLOR_TYPE *)SDRAM_DEVICE_ADDR, // Frame buffer address
-		640, 480,							// Width, Height (pixels)
-		640 * LTDC_PIXELBYTES,				// Line pitch (bytes)
-		LTDC_PIXELFORMAT,					// Pixel format
-		0, 0,								// Start pixel position (x, y)
-		640, 480,							// Size of virtual layer (cx, cy)
-		0x00000000,							// Default color (ARGB8888)
-		0x000000,							// Color key (RGB888)
-		LTDC_BLEND_FIX1_FIX2,				// Blending factors
-		0,									// Palette (RGB888, can be NULL)
-		0,									// Palette length
-		0xFF,								// Constant alpha factor
-		LTDC_LEF_ENABLE						// Layer configuration flags
-	},
-
-#if ALLOW_2ND_LAYER
-	{										// Foreground layer config (if turned on)
-		(LLDCOLOR_TYPE *)(SDRAM_DEVICE_ADDR+(640 * 480 * LTDC_PIXELBYTES)), // Frame buffer address
-		640, 480,							// Width, Height (pixels)
-		640 * LTDC_PIXELBYTES,				// Line pitch (bytes)
-		LTDC_PIXELFORMAT,					// Pixel format
-		0, 0,								// Start pixel position (x, y)
-		640, 480,							// Size of virtual layer (cx, cy)
-		0x00000000,							// Default color (ARGB8888)
-		0x000000,							// Color key (RGB888)
-		LTDC_BLEND_MOD1_MOD2,				// Blending factors
-		0,									// Palette (RGB888, can be NULL)
-		0,									// Palette length
-		0xFF,								// Constant alpha factor
-		LTDC_LEF_ENABLE						// Layer configuration flags
-	}
-#else
-	LTDC_UNUSED_LAYER_CONFIG
-#endif
-};
-
-// LCD Clock values
-#define LCD_PLLSAIN_VALUE			192					// 151
-#define LCD_PLLSAIR_VALUE			2					// 3
-#define LCD_PLLSAIDIVR_VALUE		RCC_PLLSAIDIVR_4	// RCC_PLLSAIDIVR_2
-
-static void configureLcdClock(void)
+static void configureePaperPins(void)
 {
-	#if 1
-		RCC_PeriphCLKInitTypeDef	periph_clk_init_struct;
-
-		periph_clk_init_struct.PLLSAI.PLLSAIN = LCD_PLLSAIN_VALUE;
-		periph_clk_init_struct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-		periph_clk_init_struct.PLLSAI.PLLSAIR = LCD_PLLSAIR_VALUE;
-		periph_clk_init_struct.PLLSAIDivR = LCD_PLLSAIDIVR_VALUE;
-		HAL_RCCEx_PeriphCLKConfig(&periph_clk_init_struct);
-	#else
-		#define LCD_PLLSAIQ_VALUE                 7
-
-		/* PLLSAI activation.*/
-		RCC->PLLSAICFGR = (LCD_PLLSAIN_VALUE << 6) | (LCD_PLLSAIR_VALUE << 28) | (LCD_PLLSAIQ_VALUE << 24);
-		RCC->DCKCFGR = (RCC->DCKCFGR & ~RCC_DCKCFGR_PLLSAIDIVR) | LCD_PLLSAIDIVR_VALUE;
-		RCC->CR |= RCC_CR_PLLSAION;
-	#endif
-}
-
-static void configureLcdPins(void)
-{
-	GPIO_InitTypeDef			GPIO_Init_Structure;
-
-	// Enable peripheral clocks
-	__GPIOI_CLK_ENABLE();
-	__GPIOJ_CLK_ENABLE();
-	__GPIOK_CLK_ENABLE();
-
-	/*** LTDC Pins configuration ***/
-	// GPIOI
-	GPIO_Init_Structure.Pin       = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
-	GPIO_Init_Structure.Mode      = GPIO_MODE_AF_PP;
-	GPIO_Init_Structure.Pull      = GPIO_NOPULL;
-	GPIO_Init_Structure.Speed     = GPIO_SPEED_FAST;
-	GPIO_Init_Structure.Alternate = GPIO_AF14_LTDC;
-	HAL_GPIO_Init(GPIOI, &GPIO_Init_Structure);
-
-	// GPIOJ
-	GPIO_Init_Structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | \
-	                                GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 | \
-	                                GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | \
-	                                GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
-	GPIO_Init_Structure.Mode      = GPIO_MODE_AF_PP;
-	GPIO_Init_Structure.Pull      = GPIO_NOPULL;
-	GPIO_Init_Structure.Speed     = GPIO_SPEED_FAST;
-	GPIO_Init_Structure.Alternate = GPIO_AF14_LTDC;
-	HAL_GPIO_Init(GPIOJ, &GPIO_Init_Structure);
-
-	// GPIOK configuration
-	GPIO_Init_Structure.Pin       = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | \
-	                                GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
-	GPIO_Init_Structure.Mode      = GPIO_MODE_AF_PP;
-	GPIO_Init_Structure.Pull      = GPIO_NOPULL;
-	GPIO_Init_Structure.Speed     = GPIO_SPEED_FAST;
-	GPIO_Init_Structure.Alternate = GPIO_AF14_LTDC;
-	HAL_GPIO_Init(GPIOK, &GPIO_Init_Structure);
+ //probably delete since init_board is just like my function initEpaper()
 }
 
 static GFXINLINE void init_board(GDisplay* g)
 {
 	(void) g;
 
-	// Set LCD pixel clock rate
-	configureLcdClock();
+	/* Configure gpio and spi module  B3 */
+	/*
+	 *  Port 10 for the LaunchPad
+	 *  GPIO        10.0        =        Data Command pin, Data is HIGH     == Green Ch5 on Logic Analyzer (LA)
+	 *  PRIMARY     10.1        =        SCK         ==          yellow wire connected to channel 3 on Logic Analyzer
+	 *  PRIMARY     10.2        =        MISO        ==          BLUE - logic analyzer Ch. 8
+	 *  GPIO        10.3        =        CS          ==          ORANGE, channel 4 on Logic analyzer
+	 *
+	 *  GPIO 7.1    =   ePaper RESET     =      WHITE, CH7 LA //NOTE active LOW
+	 *  GPIO 7.2    = ePaper BUSY        =      PURPLE, CH4   //NOTE active HIGH
+	 *
+	 *  SPI module on UCB3
+	 *  Polarity: rising edge
+	 *  clock is low when idle
+	 *  master only, and STE is not used
+	 */
 
-	// Set pin directions
-	configureLcdPins();
+	       /* configure spi bus  B3*/
+	       EUSCI_B3_SPI->CTLW0 |= UCSWRST; // set to a 1, unlock
+	       EUSCI_B3_SPI->CTLW0 &= ~(UCCKPL  | UC7BIT | UCMODE0   ); // polarity:0, phase:0, 8 bits, spi mode (vs i2c)
+	       EUSCI_B3_SPI->CTLW0 |= (UCCKPH | UCMSB | UCMST |  UCSYNC | UCSSEL__SMCLK); // MSB, master, sync (vs uart), system clock : 3Mhz
 
-	// Initialise the SDRAM
-	BSP_SDRAM_Init();
+	       /* configure the pins */
+	          P7SEL0 &=~(BIT1 | BIT2);        // busy and reset
+	          P7SEL1  &= ~(BIT1 | BIT2);
+
+	          //pull down on BUSY
+	          P7REN |= BIT2;
+	          P7OUT &= ~BIT2; // pulldown
+
+	          P10SEL0 &=~(BIT0 | BIT3); // D/C and CS
+	          P10SEL1 &=~(BIT0 | BIT3);
+
+	          P10SEL0 |= (BIT1 | BIT2); //primary mode for MISO and SCK
+	          P10SEL1 &= ~(BIT1 | BIT2);
+
+	          P7DIR &= ~(BIT2); //busy is an input
+	          P7DIR |= BIT1;
+	          P10DIR |= BIT0 | BIT1 | BIT2 | BIT3;
+
+	          P10OUT |= (BIT0 | BIT1 | BIT2 | BIT3); // set all high according to data sheet 21/29 good display
+	          P7OUT &= ~(BIT2);   //busy is active high!
+	          P7OUT |= (BIT1);      //reset is active low!
+
+	          //may need pull down resistor on the Busy pin, and pull up on the RESET
+
+	          EUSCI_B3_SPI->CTLW0 &= ~UCSWRST; // set to a 0 lock
+
+	          //enable interrupt for the TX
+	          EUSCI_B3_SPI ->IFG = 0;     //clear any interrupts
+	          EUSCI_B3_SPI -> IE |= UCTXIE;
+
+	          NVIC_EnableIRQ(EUSCIB3_IRQn); // TODO do i make another .c file with the interrupt routine in it? like STM did
+
+
+	          /* CS HIGH to disable display */
+	          P10OUT |= (BIT3); // set all high according to data sheet 21/29 good display
 }
 
-static GFXINLINE void post_init_board(GDisplay* g)
-{
-	(void) g;
+
+static GFXINLINE void acquire_bus(GDisplay *g) {
+    (void) g;
+    P10OUT &= ~BIT3;     // CS low
 }
 
-static GFXINLINE void set_backlight(GDisplay* g, uint8_t percent)
-{
-	(void) g;
-	(void) percent;
+static GFXINLINE void release_bus(GDisplay *g) {
+    (void) g;
+    P10OUT |= BIT3;     //cs high
 }
+
+static GFXINLINE void write_data(GDisplay *g, uint8_t data) {
+    (void) g;
+
+    /* Wait for the Busy pin to go low. */
+    while(P7IN & BIT2);
+
+    /* wait for spi to be ready */
+ while(EUSCI_B3_SPI->IFG & UCTXIFG);
+    P10OUT |=   BIT0;     // D/C
+    P10OUT &= ~BIT3;     // CS
+    EUSCI_B3_SPI->TXBUF = data;
+    P10OUT |= BIT3;
+}
+
+
+static GFXINLINE void write_cmd(GDisplay *g, uint8_t command){
+  (void) g;
+  /* Wait for the Busy pin to go low. */
+  while(P7IN & BIT2);
+  /* wait for spi driver to be ready */
+  while(EUSCI_B3_SPI->IFG & UCTXIFG);
+  P10OUT &= ~BIT0;     // D/C
+  P10OUT &= ~BIT3;     // CS
+  EUSCI_B3_SPI->TXBUF = command;
+  P10OUT |= BIT3;
+
+}
+
 
 #endif /* _GDISP_LLD_BOARD_H */
