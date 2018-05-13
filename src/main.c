@@ -482,7 +482,7 @@ void initEpaper(void){
               sendCommand(CMD_DATA_ENTRY);
               sendData(0x03);                     // X increment; Y increment
 
-           /* Send LUT - more magic numbers provided by venor*/
+           /* Send LUT - more magic numbers provided by venor */
               setLUT(lut_full_update);
 
 }

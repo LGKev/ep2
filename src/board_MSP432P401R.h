@@ -94,7 +94,7 @@ static GFXINLINE void release_bus(GDisplay *g) {
     P10OUT |= BIT3;     //cs high
 }
 
-static GFXINLINE void write_data(GDisplay *g, uint8_t data) {
+static GFXINLINE void sendData(GDisplay *g, uint8_t data) {
     (void) g;
 
     /* Wait for the Busy pin to go low. */
@@ -109,7 +109,7 @@ static GFXINLINE void write_data(GDisplay *g, uint8_t data) {
 }
 
 
-static GFXINLINE void write_cmd(GDisplay *g, uint8_t command){
+static GFXINLINE void sendCommand(g, GDisplay *g, uint8_t command){
   (void) g;
   /* Wait for the Busy pin to go low. */
   while(P7IN & BIT2);
@@ -122,5 +122,12 @@ static GFXINLINE void write_cmd(GDisplay *g, uint8_t command){
 
 }
 
+static GFXINLINE void setLUT(GDisplay *g, const unsigned char* lut){
+    sendCommand(g, CMD_WRITE_LUT);
+    uint8_t i = 0;
+    for(i = 0; i< 30; i++){
+        sendData(g, lut[i]);
+    }
+}
 
 #endif /* _GDISP_LLD_BOARD_H */
